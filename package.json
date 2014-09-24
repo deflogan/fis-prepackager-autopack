@@ -1,0 +1,16 @@
+{
+  "name": "fis-prepackager-autopack",
+  "version": "0.1.0",
+  "description": "a prepackager plugin for fis to automatic pack js files",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "fis",
+    "prepackager",
+    "autopack"
+  ],
+  "author": "deflogan",
+  "license": "MIT"
+}
