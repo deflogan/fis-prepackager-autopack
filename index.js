@@ -15,12 +15,19 @@ module.exports = function (ret, conf, settings, opt) {
     var pkg = {};
     var pkgMap = {};
     var asyncMap = {};
+    var asyncStack = [];
+    var commentStack = [];
     var index = 0;
 
     var asyncAccess = settings.asyncToSync || [];
+    var access = settings.access || 'loadmap.js';
+    var asyncAccessRequire = settings.asyncAccessRequire || [];
+    var asyncAccess = settings.asyncAccess;
+    var asyncToSync = settings.asyncToSync || [];
+    var commentRequire = settings.commentRequire || 'com-conf.js';
 
     var projectPath = fis.project.getProjectPath();
-    var packName = settings.packName || 'pack.json';
+    var packName = settings.manualPackName || 'pack.json';
     var packPath = path.join(projectPath, packName);
     var autoPackPath = path.join(projectPath, 'auto-pack.json');
 
@@ -42,10 +49,11 @@ module.exports = function (ret, conf, settings, opt) {
     fis.util.map(src, function (id, file) {
         // console.dir(id);
         var async = file.extras.async;
+        var basename = file.basename;
 
         if (file.isJsLike && async) {
             // 入口文件
-            if (file.basename === settings.access) {
+            if (basename === access) {
                 async.forEach(function (v, i) {
                     var dep = src[asyncKeyToSrcKey(v)];
 
@@ -54,24 +62,38 @@ module.exports = function (ret, conf, settings, opt) {
                     }
                 });
             } else {
+                debugger;
                 async.forEach(function (v, i) {
-                    asyncMap[asyncKeyToSrcKey(v)] = true;
+                    var path = asyncKeyToSrcKey(v);
+                    if (!asyncMap[path]) {
+                        if (basename == commentRequire) {
+                            commentStack.push(path);
+                        } else {
+                            asyncStack.push(path);
+                        }
+                        asyncMap[path] = true;
+                    }
                 });
             }
         }
     });
 
-    fis.util.map(asyncMap, function (path, i) {
+    asyncStack = commentStack.concat(asyncStack);
+
+    // console.dir(asyncStack);
+
+    asyncStack.forEach(function (path, i) {
         var file = src[path];
 
-        if (file && ~asyncAccess.indexOf(file.basename)) {
-            console.log(file.basename);
+        if (file && ~asyncToSync.indexOf(file.basename)) {
+            // console.log(file.basename);
             deployAccess(file, true);
         } else {
             deployAccess(file, false);
         }
     });
 
+    // console.dir(pkg);
     pkg = fis.util.merge(manualPack, pkg);
 
     fs.openSync(autoPackPath, 'w+');
@@ -99,6 +121,7 @@ module.exports = function (ret, conf, settings, opt) {
         // pkgMap[subpath] = true;
 
         getDeps(file, pkgList, isAsync);
+        // console.dir(pkgList);
 
         if (pkgList.length === 0) {
             return;
@@ -106,6 +129,7 @@ module.exports = function (ret, conf, settings, opt) {
             delete pkgMap['/' + pkgList[0]];
         } else {
             pkg['pkg/pkg' + (++index) + '.js'] = pkgList;
+            // console.log('pkg/pkg' + (++index) + '.js');
         }
     }
 
@@ -121,14 +145,27 @@ module.exports = function (ret, conf, settings, opt) {
 
         var deps = file.requires;
 
-        if (~asyncAccess.indexOf(file.basename)) {
+        if (!Array.isArray(deps)) {
+            return;
+        }
+        // console.log(file.basename);
+
+        // if (index === 0 && pkgList.length === 1 && file.basename === asyncAccess) {
+        //     fis.util.map(asyncAccessRequire, function(v, i) {
+        //         // console.log(i);
+        //         deps.push(conf.namespace + ':' + i);
+        //     });
+        //     // console.dir(deps);
+        //     // deps = deps.concat(accessRequire);
+        // }
+
+        if (~asyncToSync.indexOf(file.basename)) {
             deps = deps.concat(file.extras.async || []);
-            // console.log(file.basename);
             // console.dir(file.extras.async);
         }
 
         if (Array.isArray(deps) && deps.length) {
-            console.dir(deps);
+            // console.dir(deps);
             // console.dir(deps);
             deps.forEach(function (v, i) {
                 var dep = src[asyncKeyToSrcKey(v)];
